@@ -1,0 +1,51 @@
+#!/bin/bash
+
+set -e
+
+get_latest_release() {
+  # usage: get_latest_release "mozilla/geckodriver"
+
+  COMMAND="import json;from urllib import request;vendor='${1}';"
+  COMMAND+="url=f'https://api.github.com/repos/{vendor}/releases/latest';"
+  COMMAND+="data=json.loads(request.urlopen(url).read().decode('utf-8'));"
+  COMMAND+="print(data['tag_name'].strip())"
+
+  python3 -c "${COMMAND}"
+}
+
+TMP_DIR="/tmp"
+COMPOSE_VERSION="$(get_latest_release "docker/compose")"
+URI="https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)"
+CONTENT_PATH="/usr/local/bin/"
+FILE_NAME="docker-compose"
+
+FILE_NAME_COMPLETION="docker-compose"
+URI_COMPLETION="https://raw.githubusercontent.com/docker/compose/${COMPOSE_VERSION}/contrib/completion/bash/docker-compose"
+CURRENT_VERSION="$(docker-compose --version | sed -E 's/docker-compose version ([0-9.]+).*/\1/g')"
+CONTENT_PATH_COMPLETION="/etc/bash_completion.d"
+
+case "${1}" in
+  --disponivel|-d)
+    echo "Versão disponível para download: ${COMPOSE_VERSION}"
+    echo "Versão atual do compose:         ${CURRENT_VERSION}"
+
+    ;;
+  
+  *)
+    echo "Realizando download em: ${TMP_DIR}"
+    cd "${TMP_DIR}" && wget -c --progress="dot:binary" "${URI}" -O "${FILE_NAME}"
+    cd "${TMP_DIR}" && chmod +x "${FILE_NAME}"
+
+    echo "Movendo o arquivo para: ${CONTENT_PATH}"
+    sudo mv "${TMP_DIR}/${FILE_NAME}" "${CONTENT_PATH}/${FILE_NAME}"
+
+    # Completion
+    echo "Download do arquivo de completion (Bash) em ${TMP_DIR}"
+    cd "${TMP_DIR}" && wget -c --progress="dot:binary" "${URI_COMPLETION}" -O "${FILE_NAME_COMPLETION}"
+
+    echo "Movendo o arquivo para: ${CONTENT_PATH_COMPLETION}"
+    sudo mv "${TMP_DIR}/${FILE_NAME_COMPLETION}" "${CONTENT_PATH_COMPLETION}/${FILE_NAME_COMPLETION}"
+
+    ;;
+
+esac
